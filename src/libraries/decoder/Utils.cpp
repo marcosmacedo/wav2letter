@@ -6,19 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "libraries/decoder/Utils.h"
-
 namespace w2l {
 
-bool isValidCandidate(
-    float& bestScore,
-    const float score,
-    const float beamThreshold) {
-  if (score >= bestScore) {
-    bestScore = score;
-  }
-
-  return score >= bestScore - beamThreshold;
-}
+// Place holder
 
 } // namespace w2l

@@ -19,8 +19,8 @@
 #include "common/Transforms.h"
 #include "criterion/criterion.h"
 #include "libraries/common/Dictionary.h"
+#include "libraries/decoder/LexiconDecoder.h"
 #include "libraries/decoder/Trie.h"
-#include "libraries/decoder/WordLMDecoder.h"
 #include "libraries/lm/KenLM.h"
 #include "module/module.h"
 #include "runtime/runtime.h"
@@ -61,26 +61,23 @@ TEST(DecoderTest, run) {
 #endif
 
   /* ===================== Create Dataset ===================== */
-  EmissionSet emissionSet;
+  EmissionUnit emissionUnit;
 
   // T, N
   std::string tnPath = pathsConcat(dataDir, "TN.bin");
   std::ifstream tnStream(tnPath, std::ios::binary | std::ios::in);
   std::vector<int> tnArray(2);
-  int T, N;
   tnStream.read((char*)tnArray.data(), 2 * sizeof(int));
-  T = tnArray[0];
-  N = tnArray[1];
-  emissionSet.emissionN = N;
-  emissionSet.emissionT.push_back(T);
+  int T = tnArray[0], N = tnArray[1];
+  emissionUnit.nFrames = T;
+  emissionUnit.nTokens = N;
   tnStream.close();
 
   // Emission
-  emissionSet.emissions.resize(1);
-  emissionSet.emissions[0].resize(T * N);
+  emissionUnit.emission.resize(T * N);
   std::string emissionPath = pathsConcat(dataDir, "emission.bin");
   std::ifstream em_stream(emissionPath, std::ios::binary | std::ios::in);
-  em_stream.read((char*)emissionSet.emissions[0].data(), T * N * sizeof(float));
+  em_stream.read((char*)emissionUnit.emission.data(), T * N * sizeof(float));
   em_stream.close();
 
   // Transitions
@@ -159,20 +156,22 @@ TEST(DecoderTest, run) {
   /* -------- Build Decoder --------*/
   DecoderOptions decoderOpt(
       2500, // FLAGS_beamsize
+      25000, // FLAGS_beamsizetoken
       100.0, // FLAGS_beamthreshold
       2.0, // FLAGS_lmweight
       2.0, // FLAGS_lexiconcore
-      -std::numeric_limits<float>::infinity(), // FLAGS_unkweight
+      -std::numeric_limits<float>::infinity(), // FLAGS_unkscore
+      -1, // FLAGS_silscore
+      0, // FLAGS_eosscore
       false, // FLAGS_logadd
-      -1, // FLAGS_silweight
       CriterionType::ASG);
 
-  WordLMDecoder decoder(
-      decoderOpt, trie, lm, silIdx, blankIdx, unkIdx, transitions);
+  LexiconDecoder decoder(
+      decoderOpt, trie, lm, silIdx, blankIdx, unkIdx, transitions, false);
   LOG(INFO) << "[Decoder] Decoder constructed.\n";
 
   /* -------- Run --------*/
-  auto emission = emissionSet.emissions[0];
+  auto emission = emissionUnit.emission;
 
   std::vector<float> score;
   std::vector<std::vector<int>> wordPredictions;
@@ -185,11 +184,15 @@ TEST(DecoderTest, run) {
 
   int n_hyp = results.size();
 
-  ASSERT_EQ(n_hyp, 1452);
+  ASSERT_EQ(n_hyp, 16); // only one with nice ending
+
+  for (int i = 0; i < std::min(n_hyp, 5); i++) {
+    LOG(INFO) << results[i].score;
+  }
 
   std::vector<float> hypScoreTarget{
-      -278.111, -278.652, -279.275, -279.847, -280.01};
-  for (int i = 0; i < 5; i++) {
+      -284.0998, -284.108, -284.119, -284.127, -284.296};
+  for (int i = 0; i < std::min(n_hyp, 5); i++) {
     ASSERT_NEAR(results[i].score, hypScoreTarget[i], 1e-3);
   }
 }
