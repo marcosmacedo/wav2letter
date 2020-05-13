@@ -10,6 +10,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ----------------------------- Configuration -----------------------------
 
 option(W2L_BUILD_LIBRARIES_ONLY "Build wav2letter-libraries only" OFF)
+option(W2L_BUILD_INFERENCE
+  "Build inference even when W2L_BUILD_LIBRARIES_ONLY is set" OFF)
 option(W2L_LIBRARIES_USE_CUDA "Use CUDA in libraries-only build" ON)
 option(W2L_LIBRARIES_USE_KENLM "Use KenLM in libraries-only build" ON)
 option(W2L_LIBRARIES_USE_MKL "Use MKL in libraries-only build" ON)
@@ -19,6 +21,7 @@ option(W2L_BUILD_EXAMPLES "Build examples for wav2letter++" ON)
 option(W2L_BUILD_EXPERIMENTAL "Build internal experimental components for wav2letter++" OFF)
 option(W2L_BUILD_SCRIPTS "Build internal scripts for wav2letter++" OFF)
 option(W2L_BUILD_RECIPES "Build recipes" ON)
+option(W2L_BUILD_TOOLS "Build audio tools" OFF)
 set(KENLM_MAX_ORDER 6 CACHE STRING "Maximum ngram order for KenLM")
 
 # ------------------------- Dependency Fallback -------------------------
@@ -47,6 +50,9 @@ endfunction ()
 
 if (W2L_BUILD_LIBRARIES_ONLY)
   build_w2l_libraries()
+  if (W2L_BUILD_INFERENCE)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/inference)
+  endif()
   return()
 endif ()
 
@@ -155,6 +161,10 @@ if (W2L_BUILD_TESTS)
   add_subdirectory(${PROJECT_SOURCE_DIR}/src/tests)
 endif ()
 
+if (W2L_BUILD_INFERENCE)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/inference)
+endif()
+
 # ----------------------------- wav2letter++ lib  -----------------------------
 
 add_library(
@@ -202,10 +212,18 @@ if (W2L_BUILD_SCRIPTS)
   add_subdirectory(${PROJECT_SOURCE_DIR}/scripts)
 endif ()
 
+# Recipes for research
 if (W2L_BUILD_RECIPES)
   message(STATUS "Building recipes.")
   add_subdirectory(${PROJECT_SOURCE_DIR}/recipes)
 endif ()
+
+# Tools for audio data and text
+if (W2L_BUILD_TOOLS)
+  message(STATUS "Building tools.")
+  add_subdirectory(${PROJECT_SOURCE_DIR}/tools)
+endif ()
+
 # ----------------------------- Train -----------------------------
 add_executable(
   Train
